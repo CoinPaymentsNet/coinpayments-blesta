@@ -1,0 +1,41 @@
+<ul>
+    <li>
+        <?php
+        $this->Form->label($this->_("CoinPayments.client_id", true), "client_id");
+        $this->Form->fieldText("client_id", $this->Html->ifSet($meta['client_id']), array('id'=>"client_id"));
+        ?>
+    </li>
+    <li>
+        <?php
+        $this->Form->label($this->_("CoinPayments.webhooks", true), "webhooks");
+        $this->Form->fieldSelect('webhooks', [$this->_('CoinPayments.webhooks_disabled', true), $this->_('CoinPayments.webhooks_enabled', true)], $this->Html->ifSet($meta['webhooks']), ['id' => 'webhooks']);
+        ?>
+    </li>
+    <li id="client_secret_wrapper">
+        <?php
+        $this->Form->label($this->_("CoinPayments.client_secret", true), "client_secret");
+        $this->Form->fieldText("client_secret", $this->Html->ifSet($meta['client_secret']), array('id'=>"client_secret"));
+        ?>
+    </li>
+</ul>
+<script>
+    document.addEventListener('DOMContentLoaded', function(){
+
+
+        var webhooks = document.getElementById('webhooks');
+        var client_secret_wrapper = document.getElementById('client_secret_wrapper');
+        console.log(webhooks);
+        console.log(client_secret_wrapper);
+        if (webhooks.value == 0) {
+          client_secret_wrapper.style.display = 'none';
+        }
+        webhooks.onchange = function () {
+          if (this.value == 1) {
+            client_secret_wrapper.style.display = 'block';
+          } else {
+            client_secret_wrapper.style.display = 'none';
+          }
+        }
+
+    });
+</script>
