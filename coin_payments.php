@@ -284,7 +284,8 @@ class CoinPayments extends NonmerchantGateway
         $amount = number_format($amount, $coin_currency['decimalPlaces'], '', '');
 
         if ($webhooks) {
-            $invoice = $api->createMerchantInvoice($client_id, $client_secret, $coin_currency['id'], $invoice_id, $amount, $display_value, $invoice_amounts);
+            $resp = $api->createMerchantInvoice($client_id, $client_secret, $coin_currency['id'], $invoice_id, $amount, $display_value, $invoice_amounts);
+            $invoice = array_shift($resp['invoices']);
         } else {
             $invoice = $api->createSimpleInvoice($client_id, $coin_currency['id'], $invoice_id, $amount, $display_value, $invoice_amounts);
         }
