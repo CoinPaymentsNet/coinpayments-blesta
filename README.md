@@ -23,7 +23,7 @@ your Blesta installation path.
     For example:
 
     ```
-    /var/www/html/blesta/components/nonmerchant/coin_payments/
+    /var/www/html/blesta/components/gateways/nonmerchant/coin_payments/
     ```
 
 ## Update the Gateway
@@ -33,7 +33,7 @@ Upload with replace the source code to a /components/gateways/nonmerchant/coin_p
 For example:
    
 ```
-/var/www/html/blesta/components/nonmerchant/coin_payments/
+/var/www/html/blesta/components/gateways/nonmerchant/coin_payments/
 ```
    
 Log in to your admin Blesta account and navigate to:
