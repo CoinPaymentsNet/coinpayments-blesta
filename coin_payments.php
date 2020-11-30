@@ -277,7 +277,7 @@ class CoinPayments extends NonmerchantGateway
         $host_address = $this->getHost();
 
         $invoice_id = sprintf('%s|%s', md5($host_address), $contact_info['client_id']);
-        $post_to = sprintf('%s/%s/', CoinpaymentsApi::API_URL, CoinpaymentsApi::API_CHECKOUT_ACTION);
+        $post_to = sprintf('%s/%s/', CoinpaymentsApi::CHECKOUT, CoinpaymentsApi::API_CHECKOUT_ACTION);
 
         $coin_currency = $api->getCoinCurrency($this->currency);
         $display_value = $amount;
