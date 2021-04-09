@@ -180,8 +180,14 @@ class CoinPayments extends NonmerchantGateway
                                         }, $webhooks_list['items']);
                                     }
 
-                                    if (!in_array($api->getNotificationUrl(), $webhooks_urls_list)) {
-                                        if (!empty($api->createWebHook($client_id, $client_secret, $api->getNotificationUrl()))) {
+                                    if (
+                                        !in_array($api->getNotificationUrl($client_id, CoinpaymentsApi::PAID_EVENT), $webhooks_urls_list) ||
+                                        !in_array($api->getNotificationUrl($client_id, CoinpaymentsApi::CANCELLED_EVENT), $webhooks_urls_list)
+                                    ) {
+                                        if (
+                                            !empty($api->createWebHook($client_id, $client_secret, CoinpaymentsApi::PAID_EVENT)) &&
+                                            !empty($api->createWebHook($client_id, $client_secret, CoinpaymentsApi::CANCELLED_EVENT))
+                                        ) {
                                             $valid = true;
                                         }
                                     } else {
@@ -349,10 +355,11 @@ class CoinPayments extends NonmerchantGateway
 
             Loader::load(dirname(__FILE__) . DS . 'lib' . DS . 'coinpayments_api.php');
             $api = new CoinpaymentsApi();
+            $client_id = $this->meta['client_id'];
             $client_secret = $this->meta['client_secret'];
             $signature = $_SERVER['HTTP_X_COINPAYMENTS_SIGNATURE'];
             $request_data = json_decode($content, true);
-            if ($api->checkDataSignature($signature, $content, $client_secret) && isset($request_data['invoice']['invoiceId'])) {
+            if ($api->checkDataSignature($signature, $content, $client_id, $client_secret, $request_data['invoice']['status']) && isset($request_data['invoice']['invoiceId'])) {
 
                 $invoice_str = $request_data['invoice']['invoiceId'];
                 $invoice_str = explode('|', $invoice_str);
@@ -364,9 +371,9 @@ class CoinPayments extends NonmerchantGateway
                     $trans_id = $request_data['invoice']['id'];
 
                     $status = 'pending';
-                    if ($request_data['invoice']['status'] == 'Completed') {
+                    if ($request_data['invoice']['status'] == CoinpaymentsApi::PAID_EVENT) {
                         $status = 'approved';
-                    } elseif ($request_data['invoice']['status'] == 'Cancelled') {
+                    } elseif ($request_data['invoice']['status'] == CoinpaymentsApi::CANCELLED_EVENT) {
                         $status = 'declined';
                     }
 

@@ -21,28 +21,27 @@ class CoinpaymentsApi
     const API_CHECKOUT_ACTION = 'checkout';
     const FIAT_TYPE = 'fiat';
 
+    const PAID_EVENT = 'Paid';
+    const CANCELLED_EVENT = 'Cancelled';
+
     const WEBHOOK_NOTIFICATION_URL = '/coin_payments/';
 
     /**
      * @param $client_id
      * @param $client_secret
-     * @param $notification_url
+     * @param $event
      * @return bool|mixed
      * @throws Exception
      */
-    public function createWebHook($client_id, $client_secret, $notification_url)
+    public function createWebHook($client_id, $client_secret, $event)
     {
 
         $action = sprintf(self::API_WEBHOOK_ACTION, $client_id);
 
         $params = array(
-            "notificationsUrl" => $notification_url,
+            "notificationsUrl" => $this->getNotificationUrl($client_id, $event),
             "notifications" => [
-                "invoiceCreated",
-                "invoicePending",
-                "invoicePaid",
-                "invoiceCompleted",
-                "invoiceCancelled",
+                sprintf("invoice%s", $event),
             ],
         );
 
@@ -174,9 +173,13 @@ class CoinpaymentsApi
     /**
      * @return string
      */
-    public function getNotificationUrl()
+    public function getNotificationUrl($client_id, $event)
     {
-        return Configure::get("Blesta.gw_callback_url") . Configure::get("Blesta.company_id") . self::WEBHOOK_NOTIFICATION_URL;
+        $params = [
+            'clientId' => $client_id,
+            'event' => $event,
+        ];
+        return Configure::get("Blesta.gw_callback_url") . Configure::get("Blesta.company_id") . self::WEBHOOK_NOTIFICATION_URL . '?' . http_build_query($params);
     }
 
     /**
@@ -192,13 +195,15 @@ class CoinpaymentsApi
     /**
      * @param $signature
      * @param $content
+     * @param $client_id
      * @param $client_secret
+     * @param $event
      * @return bool
      */
-    public function checkDataSignature($signature, $content, $client_secret)
+    public function checkDataSignature($signature, $content, $client_id, $client_secret, $event)
     {
 
-        $request_url = $this->getNotificationUrl();
+        $request_url = $this->getNotificationUrl($client_id, $event);
         $signature_string = sprintf('%s%s', $request_url, $content);
         $encoded_pure = $this->encodeSignatureString($signature_string, $client_secret);
         return $signature == $encoded_pure;
