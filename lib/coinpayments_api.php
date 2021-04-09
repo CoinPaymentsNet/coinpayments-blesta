@@ -64,7 +64,8 @@ class CoinpaymentsApi
         $invoice_id = 'Validate invoice',
         $amount = 1,
         $display_value = '0.01',
-        $invoice_amounts = false
+        $invoice_amounts = false,
+        $billing_data = []
     )
     {
 
@@ -85,6 +86,9 @@ class CoinpaymentsApi
         }
 
         $params = $this->appendInvoiceMetadata($params);
+        if(!empty($billing_data)){
+            $params = $this->appendBillingData($params, $billing_data);
+        }
 
         return $this->sendRequest('POST', $action, $client_id, $params);
     }
@@ -100,7 +104,7 @@ class CoinpaymentsApi
      * @return bool|mixed
      * @throws Exception
      */
-    public function createMerchantInvoice($client_id, $client_secret, $currency_id, $invoice_id, $amount, $display_value, $invoice_amounts)
+    public function createMerchantInvoice($client_id, $client_secret, $currency_id, $invoice_id, $amount, $display_value, $invoice_amounts, $billing_data)
     {
 
         $action = self::API_MERCHANT_INVOICE_ACTION;
@@ -119,7 +123,9 @@ class CoinpaymentsApi
         }
 
         $params = $this->appendInvoiceMetadata($params);
-
+        if(!empty($billing_data)){
+            $params = $this->appendBillingData($params, $billing_data);
+        }
 
         return $this->sendRequest('POST', $action, $client_id, $params, $client_secret);
     }
@@ -223,6 +229,45 @@ class CoinpaymentsApi
         );
 
         return $request_data;
+    }
+
+    /**
+     * @param $request_params
+     * @param $billing_data
+     * @return array
+     */
+    protected function appendBillingData($request_params, $billing_data)
+    {
+
+        $request_params['buyer'] = array(
+            'companyName' => $billing_data['company'],
+            'name' => array(
+                'firstName' => $billing_data['first_name'],
+                'lastName' => $billing_data['last_name']
+            ),
+            'phoneNumber' => $billing_data['phone'],
+        );
+
+        if (preg_match('/^.*@.*$/', $billing_data['email'])) {
+            $request_params['buyer']['emailAddress'] = $billing_data['email'];
+        }
+
+        if (!empty($billing_data['address_1']) &&
+            !empty($billing_data['city']) &&
+            preg_match('/^([A-Z]{2})$/', $billing_data['country'])
+        ) {
+            $request_params['buyer']['address'] = array(
+                'address1' => $billing_data['address_1'],
+                'address2' => $billing_data['address_2'],
+                'provinceOrState' => $billing_data['state'],
+                'city' => $billing_data['city'],
+                'countryCode' => $billing_data['country'],
+                'postalCode' => $billing_data['postcode'],
+            );
+
+        }
+
+        return $request_params;
     }
 
     /**

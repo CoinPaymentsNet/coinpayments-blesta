@@ -274,13 +274,43 @@ class CoinPayments extends NonmerchantGateway
     public function buildProcess(array $contact_info, $amount, array $invoice_amounts = null, array $options = null)
     {
 
+        Loader::loadModels($this, ['Clients', 'Contacts']);
         Loader::load(dirname(__FILE__) . DS . 'lib' . DS . 'coinpayments_api.php');
         $api = new CoinpaymentsApi();
+
+        $client = $this->Clients->get($contact_info['client_id'], false);
+        $client->fields = $this->Clients->getCustomFieldValues($contact_info['client_id']);
+
+        $client_phone = '';
+        $contact_numbers = $this->Contacts->getNumbers($client->contact_id);
+        foreach ($contact_numbers as $contact_number) {
+            if ($contact_number->type == 'phone') {
+                $client_phone = $contact_number->number;
+                break;
+            }
+        }
+
+        if (!empty($client_phone)) {
+            $client_phone = preg_replace('/[^0-9]/', '', $client_phone);
+        }
 
         $client_id = $this->meta['client_id'];
         $webhooks = $this->meta['webhooks'];
         $client_secret = $this->meta['client_secret'];
         $host_address = $this->getHost();
+        $billing_data = array(
+            'company' => $contact_info['company'],
+            'first_name' => $contact_info['first_name'],
+            'last_name' => $contact_info['last_name'],
+            'phone' => $client_phone,
+            'email' => $client->email,
+            'city' => $contact_info['city'],
+            'country' => $contact_info['country']['name'],
+            'address_1' => $contact_info['address_1'],
+            'address_2' => $contact_info['address_2'],
+            'state' => $contact_info['state']['name'],
+            'postcode' => $contact_info['zip'],
+        );
 
         $invoice_id = sprintf('%s|%s', md5($host_address), $contact_info['client_id']);
         $post_to = sprintf('%s/%s/', CoinpaymentsApi::API_URL, CoinpaymentsApi::API_CHECKOUT_ACTION);
@@ -290,10 +320,10 @@ class CoinPayments extends NonmerchantGateway
         $amount = number_format($amount, $coin_currency['decimalPlaces'], '', '');
 
         if ($webhooks) {
-            $resp = $api->createMerchantInvoice($client_id, $client_secret, $coin_currency['id'], $invoice_id, $amount, $display_value, $invoice_amounts);
+            $resp = $api->createMerchantInvoice($client_id, $client_secret, $coin_currency['id'], $invoice_id, $amount, $display_value, $invoice_amounts, $billing_data);
             $invoice = array_shift($resp['invoices']);
         } else {
-            $invoice = $api->createSimpleInvoice($client_id, $coin_currency['id'], $invoice_id, $amount, $display_value, $invoice_amounts);
+            $invoice = $api->createSimpleInvoice($client_id, $coin_currency['id'], $invoice_id, $amount, $display_value, $invoice_amounts, $billing_data);
         }
 
         // An array of key/value hidden fields to set for the payment form
