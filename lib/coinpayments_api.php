@@ -50,85 +50,68 @@ class CoinpaymentsApi
     }
 
     /**
-     * @param $client_id
-     * @param int $currency_id
-     * @param string $invoice_id
-     * @param int $amount
-     * @param string $display_value
-     * @param bool $invoice_amounts
+     * @param $invoice_params
      * @return bool|mixed
      * @throws Exception
      */
-    public function createSimpleInvoice(
-        $client_id,
-        $currency_id = 5057,
-        $invoice_id = 'Validate invoice',
-        $amount = 1,
-        $display_value = '0.01',
-        $invoice_amounts = false,
-        $billing_data = []
-    )
+    public function createSimpleInvoice($invoice_params)
     {
 
         $action = self::API_SIMPLE_INVOICE_ACTION;
 
         $params = array(
-            'clientId' => $client_id,
-            'invoiceId' => $invoice_id,
+            'clientId' => $invoice_params['client_id'],
+            'invoiceId' => $invoice_params['invoice_id'],
             'amount' => [
-                'currencyId' => $currency_id,
-                "displayValue" => $display_value,
-                'value' => $amount
+                'currencyId' => $invoice_params['currency_id'],
+                "displayValue" => $invoice_params['display_value'],
+                'value' => $invoice_params['amount'],
             ],
+            'notesToRecipient' => $invoice_params['notes_link'],
         );
 
-        if (!empty($invoice_amounts)) {
-            $params['custom']['amounts'] = $invoice_amounts;
+        if (!empty($invoice_params['invoice_amounts'])) {
+            $params['customData']['amounts'] = json_encode($invoice_params['invoice_amounts']);
         }
 
         $params = $this->appendInvoiceMetadata($params);
-        if(!empty($billing_data)){
-            $params = $this->appendBillingData($params, $billing_data);
+        if (!empty($invoice_params['billing_data'])) {
+            $params = $this->appendBillingData($params, $invoice_params['billing_data']);
         }
 
-        return $this->sendRequest('POST', $action, $client_id, $params);
+        return $this->sendRequest('POST', $action, $invoice_params['client_id'], $params);
     }
 
     /**
-     * @param $client_id
-     * @param $client_secret
-     * @param $currency_id
-     * @param $invoice_id
-     * @param $amount
-     * @param $display_value
-     * @param $invoice_amounts
+     * @param $invoice_params
      * @return bool|mixed
      * @throws Exception
      */
-    public function createMerchantInvoice($client_id, $client_secret, $currency_id, $invoice_id, $amount, $display_value, $invoice_amounts, $billing_data)
+    public function createMerchantInvoice($invoice_params)
     {
 
         $action = self::API_MERCHANT_INVOICE_ACTION;
 
         $params = array(
-            "invoiceId" => $invoice_id,
+            "invoiceId" => $invoice_params['invoice_id'],
             "amount" => [
-                "currencyId" => $currency_id,
-                "displayValue" => $display_value,
-                "value" => $amount
+                "currencyId" => $invoice_params['currency_id'],
+                "displayValue" => $invoice_params['display_value'],
+                "value" => $invoice_params['amount']
             ],
+            'notesToRecipient' => $invoice_params['notes_link'],
         );
 
-        if (!empty($invoice_amounts)) {
-            $params['custom']['amounts'] = $invoice_amounts;
+        if (!empty($invoice_params['invoice_amounts'])) {
+            $params['customData']['amounts'] = json_encode($invoice_params['invoice_amounts']);
         }
 
         $params = $this->appendInvoiceMetadata($params);
-        if(!empty($billing_data)){
-            $params = $this->appendBillingData($params, $billing_data);
+        if (!empty($invoice_params['billing_data'])) {
+            $params = $this->appendBillingData($params, $invoice_params['billing_data']);
         }
 
-        return $this->sendRequest('POST', $action, $client_id, $params, $client_secret);
+        return $this->sendRequest('POST', $action, $invoice_params['client_id'], $params, $invoice_params['client_secret']);
     }
 
     /**
@@ -216,13 +199,32 @@ class CoinpaymentsApi
         return $signature == $encoded_pure;
     }
 
+    public function getInvoiceData($invoice_id, $client_id, $client_secret = false)
+    {
+
+        $action = self::API_SIMPLE_INVOICE_ACTION;
+        $action = sprintf('%s/%s', $action, $invoice_id);
+
+        return $this->sendRequest('GET', $action, $client_id, null, $client_secret);
+    }
+
+    /**
+     * Returns the host name of this gateway
+     *
+     * @return string Host name of this gateway
+     */
+    public function getHost()
+    {
+        return 'http' . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ? 's' : '') . '://' . (isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost');
+    }
+
     /**
      * @param $request_data
      * @return mixed
      */
     protected function appendInvoiceMetadata($request_data)
     {
-        $hostname = Configure::get("Blesta.gw_callback_url");
+        $hostname = $this->getHost();
 
         $request_data['metadata'] = array(
             "integration" => sprintf("Blesta_v%s", BLESTA_VERSION),

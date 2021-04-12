@@ -68,16 +68,6 @@ class CoinPayments extends NonmerchantGateway
     }
 
     /**
-     * Returns the host name of this gateway
-     *
-     * @return string Host name of this gateway
-     */
-    public function getHost()
-    {
-        return 'http' . (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] != 'off' ? 's' : '') . '://' . (isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost');
-    }
-
-    /**
      * Return all currencies supported by this gateway
      *
      * @return array A numerically indexed array containing all currency codes (ISO 4217 format) this gateway supports
@@ -148,7 +138,17 @@ class CoinPayments extends NonmerchantGateway
                         $valid = false;
                         if (!empty($client_id)) {
                             if (!$webhooks) {
-                                $invoice = $api->createSimpleInvoice($client_id);
+                                $invoice_params = array(
+                                    'client_id' => $client_id,
+                                    'currency_id' => 5057,
+                                    'invoice_id' => 'Validate invoice',
+                                    'amount' => 1,
+                                    'display_value' => '0.01',
+                                    'invoice_amounts' => false,
+                                    'billing_data' => array()
+                                );
+
+                                $invoice = $api->createSimpleInvoice($invoice_params);
                                 if (!empty($invoice['id'])) {
                                     $valid = true;
                                 }
@@ -274,7 +274,7 @@ class CoinPayments extends NonmerchantGateway
     public function buildProcess(array $contact_info, $amount, array $invoice_amounts = null, array $options = null)
     {
 
-        Loader::loadModels($this, ['Clients', 'Contacts']);
+        Loader::loadModels($this, ['Clients', 'Contacts', 'Companies']);
         Loader::load(dirname(__FILE__) . DS . 'lib' . DS . 'coinpayments_api.php');
         $api = new CoinpaymentsApi();
 
@@ -297,7 +297,7 @@ class CoinPayments extends NonmerchantGateway
         $client_id = $this->meta['client_id'];
         $webhooks = $this->meta['webhooks'];
         $client_secret = $this->meta['client_secret'];
-        $host_address = $this->getHost();
+        $host_address = $api->getHost();
         $billing_data = array(
             'company' => $contact_info['company'],
             'first_name' => $contact_info['first_name'],
@@ -312,18 +312,45 @@ class CoinPayments extends NonmerchantGateway
             'postcode' => $contact_info['zip'],
         );
 
+        if (count($invoice_amounts) == 1) {
+            $order_url = sprintf('%s/admin/clients/editinvoice/%s/%s', $api->getHost(), $contact_info['client_id'], $invoice_amounts[0]['id']);
+            $order_str = sprintf('Client #%s Invoice #%s', $contact_info['client_id'], $invoice_amounts[0]['id']);
+        } else {
+            $order_url = sprintf('%s/admin/clients/view/%s', $api->getHost(), $contact_info['client_id']);
+            $order_str = sprintf('Client #%s', $contact_info['client_id']);
+        }
+
+        $company_id = Configure::get('Blesta.company_id');
+        $company = $this->Companies->get($company_id);
+        $notes_link = sprintf(
+            "%s|Store name: %s|%s",
+            $order_url,
+            $company->name,
+            $order_str
+        );
+
         $invoice_id = sprintf('%s|%s', md5($host_address), $contact_info['client_id']);
         $post_to = sprintf('%s/%s/', CoinpaymentsApi::CHECKOUT_URL, CoinpaymentsApi::API_CHECKOUT_ACTION);
 
         $coin_currency = $api->getCoinCurrency($this->currency);
-        $display_value = $amount;
-        $amount = number_format($amount, $coin_currency['decimalPlaces'], '', '');
+
+        $invoice_params = array(
+            'client_id' => $client_id,
+            'currency_id' => $coin_currency['id'],
+            'invoice_id' => $invoice_id,
+            'amount' => number_format($amount, $coin_currency['decimalPlaces'], '', ''),
+            'display_value' => $amount,
+            'invoice_amounts' => $invoice_amounts,
+            'billing_data' => $billing_data,
+            'notes_link' => $notes_link,
+        );
 
         if ($webhooks) {
-            $resp = $api->createMerchantInvoice($client_id, $client_secret, $coin_currency['id'], $invoice_id, $amount, $display_value, $invoice_amounts, $billing_data);
+            $invoice_params['client_secret'] = $client_secret;
+            $resp = $api->createMerchantInvoice($invoice_params);
             $invoice = array_shift($resp['invoices']);
         } else {
-            $invoice = $api->createSimpleInvoice($client_id, $coin_currency['id'], $invoice_id, $amount, $display_value, $invoice_amounts, $billing_data);
+            $invoice = $api->createSimpleInvoice($invoice_params);
         }
 
         // An array of key/value hidden fields to set for the payment form
@@ -396,7 +423,7 @@ class CoinPayments extends NonmerchantGateway
                 $host_hash = array_shift($invoice_str);
                 $invoice_id = array_shift($invoice_str);
 
-                if ($host_hash == md5($this->getHost())) {
+                if ($host_hash == md5($api->getHost())) {
                     $display_value = $request_data['invoice']['amount']['displayValue'];
                     $trans_id = $request_data['invoice']['id'];
 
@@ -407,6 +434,8 @@ class CoinPayments extends NonmerchantGateway
                         $status = 'declined';
                     }
 
+                    $invoice_data = $api->getInvoiceData($request_data['invoice']['id'], $client_id, $client_secret);
+                    $invoice_amounts = json_decode($invoice_data["customData"]["amounts"], true);
                     return array(
                         'client_id' => $invoice_id,
                         'amount' => $this->ifSet($display_value),
@@ -415,7 +444,7 @@ class CoinPayments extends NonmerchantGateway
                         'reference_id' => null,
                         'transaction_id' => $trans_id,
                         'parent_transaction_id' => '',
-                        'invoices' => $this->ifSet($request_data['custom']['amounts']),
+                        'invoices' => $this->ifSet($invoice_amounts),
                     );
                 }
             }
