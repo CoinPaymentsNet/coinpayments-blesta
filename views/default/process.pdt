@@ -14,4 +14,14 @@
 	);
 	
 	$this->Form->end();
-	?>
+
+    $coinpayments_link = sprintf(
+        '<a href="%s" target="_blank" title="CoinPayments.net">CoinPayments.net</a>',
+        'https://alpha.coinpayments.net/'
+    );
+
+    $coin_description = 'Pay with Bitcoin, Litecoin, or other altcoins via ';
+
+    echo sprintf('%s<br/>%s', $coin_description, $coinpayments_link);
+
+?>
