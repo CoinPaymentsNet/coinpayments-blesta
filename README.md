@@ -8,46 +8,11 @@ Demonstration Website Disclaimer:   The information presented on alpha.coinpayme
 
 In no event will CoinPayments Inc. or its directors, officers, employees, shareholders, service providers or agents, be liable to you, or anyone else, for any decision(s) made or action(s) taken in reliance upon the information contained in the Demo Site, nor for any direct, indirect, incidental, special, exemplary, punitive, consequential, or other damages whatsoever (including, but not limited to, liability for loss of use, funds, data or profits) whether in an action of contract, statute, tort or otherwise, relating to the use of the Demo Site.
 
-# Coin Payments Gateway
-## Install the Gateway
+# Follow the steps below to download this plugin:
+  
+1. Log into your https://alpha.coinpayments.net/ account
+2. Click on Business Tools -> Intergrations -> Pre-built Plugins -> + add Intergration button
+3. Select this plug-in from the dropdown menu
+4. Click the download plugin button  
 
-1. You can install the gateway via git:
-
-    ```
-    git clone https://github.com/CoinPaymentsNet/coinpayments-blesta/tree/cps_api_v2
-    ```
-
-2. Upload the source code to a /components/gateways/nonmerchant/coin_payments/ directory within
-your Blesta installation path.
-
-    For example:
-
-    ```
-    /var/www/html/blesta/components/gateways/nonmerchant/coin_payments/
-    ```
-
-## Update the Gateway
-
-Upload with replace the source code to a /components/gateways/nonmerchant/coin_payments/ directory within your Blesta installation path.
-   
-For example:
-   
-```
-/var/www/html/blesta/components/gateways/nonmerchant/coin_payments/
-```
-   
-Log in to your admin Blesta account and navigate to:
-    > Settings > Payment Gateways
-
-Find the Coin Payments gateway and click the "Upgrade" button to install it
-
-
-## Configure Gateway
-1. Log in to your admin Blesta account and navigate to:
-    > Settings > Payment Gateways
-
-2. Find the Coin Payments gateway and click the "Install" button to install it
-
-3. Edit the gateway settings with your CoinPayments Client ID and Client Secret.
-
-4. You're done!
+![blesta_wizard](https://user-images.githubusercontent.com/52743085/115864953-4d7f9080-a440-11eb-867e-067967ed9b5b.png)
