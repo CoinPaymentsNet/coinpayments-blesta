@@ -35,6 +35,8 @@ class CoinPayments extends NonmerchantGateway
 
         // Load the language required by this gateway
         Language::loadLang("coin_payments", null, dirname(__FILE__) . DS . "language" . DS);
+
+        $this->loadConfig(dirname(__FILE__) . DS . 'config.json');
     }
 
     /**
