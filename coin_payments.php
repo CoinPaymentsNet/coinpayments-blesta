@@ -276,88 +276,106 @@ class CoinPayments extends NonmerchantGateway
     public function buildProcess(array $contact_info, $amount, array $invoice_amounts = null, array $options = null)
     {
 
-        Loader::loadModels($this, ['Clients', 'Contacts', 'Companies']);
+        Loader::loadModels($this, ['Clients', 'Contacts', 'Companies', 'Session']);
         Loader::load(dirname(__FILE__) . DS . 'lib' . DS . 'coinpayments_api.php');
+
         $api = new CoinpaymentsApi();
 
-        $client = $this->Clients->get($contact_info['client_id'], false);
-        $client->fields = $this->Clients->getCustomFieldValues($contact_info['client_id']);
+        $return_url_parts = explode('/', $options['return_url']);
+        $order_id = array_pop($return_url_parts);
 
-        $client_phone = '';
-        $contact_numbers = $this->Contacts->getNumbers($client->contact_id);
-        foreach ($contact_numbers as $contact_number) {
-            if ($contact_number->type == 'phone') {
-                $client_phone = $contact_number->number;
-                break;
-            }
+        $store_invoice_ids = array();
+        foreach ($invoice_amounts as $invoice_amount) {
+            $store_invoice_ids[] = $invoice_amount['id'];
         }
 
-        if (!empty($client_phone)) {
-            $client_phone = preg_replace('/[^0-9]/', '', $client_phone);
-        }
+        $session_invoice_id = sprintf('%s_%s_%s', $contact_info['client_id'], $order_id, implode('_', $store_invoice_ids));
 
-        $client_id = $this->meta['client_id'];
-        $webhooks = $this->meta['webhooks'];
-        $client_secret = $this->meta['client_secret'];
-        $host_address = $api->getHost();
-        $billing_data = array(
-            'company' => $contact_info['company'],
-            'first_name' => $contact_info['first_name'],
-            'last_name' => $contact_info['last_name'],
-            'phone' => $client_phone,
-            'email' => $client->email,
-            'city' => $contact_info['city'],
-            'country' => $contact_info['country']['name'],
-            'address_1' => $contact_info['address_1'],
-            'address_2' => $contact_info['address_2'],
-            'state' => $contact_info['state']['name'],
-            'postcode' => $contact_info['zip'],
-        );
-
-        if (count($invoice_amounts) == 1) {
-            $order_url = sprintf('%s/admin/clients/editinvoice/%s/%s', $api->getHost(), $contact_info['client_id'], $invoice_amounts[0]['id']);
-            $order_str = sprintf('Client #%s Invoice #%s', $contact_info['client_id'], $invoice_amounts[0]['id']);
-        } else {
-            $order_url = sprintf('%s/admin/clients/view/%s', $api->getHost(), $contact_info['client_id']);
-            $order_str = sprintf('Client #%s', $contact_info['client_id']);
-        }
-
-        $company_id = Configure::get('Blesta.company_id');
-        $company = $this->Companies->get($company_id);
-        $notes_link = sprintf(
-            "%s|Store name: %s|%s",
-            $order_url,
-            $company->name,
-            $order_str
-        );
-
-        $invoice_id = sprintf('%s|%s', md5($host_address), $contact_info['client_id']);
         $post_to = sprintf('%s/%s/', CoinpaymentsApi::CHECKOUT_URL, CoinpaymentsApi::API_CHECKOUT_ACTION);
 
-        $coin_currency = $api->getCoinCurrency($this->currency);
+        $invoice_id = $this->Session->read($session_invoice_id);
+        if (!$invoice_id) {
 
-        $invoice_params = array(
-            'client_id' => $client_id,
-            'currency_id' => $coin_currency['id'],
-            'invoice_id' => $invoice_id,
-            'amount' => number_format($amount, $coin_currency['decimalPlaces'], '', ''),
-            'display_value' => $amount,
-            'invoice_amounts' => $invoice_amounts,
-            'billing_data' => $billing_data,
-            'notes_link' => $notes_link,
-        );
+            $client = $this->Clients->get($contact_info['client_id'], false);
+            $client->fields = $this->Clients->getCustomFieldValues($contact_info['client_id']);
 
-        if ($webhooks) {
-            $invoice_params['client_secret'] = $client_secret;
-            $resp = $api->createMerchantInvoice($invoice_params);
-            $invoice = array_shift($resp['invoices']);
-        } else {
-            $invoice = $api->createSimpleInvoice($invoice_params);
+            $client_phone = '';
+            $contact_numbers = $this->Contacts->getNumbers($client->contact_id);
+            foreach ($contact_numbers as $contact_number) {
+                if ($contact_number->type == 'phone') {
+                    $client_phone = $contact_number->number;
+                    break;
+                }
+            }
+
+            if (!empty($client_phone)) {
+                $client_phone = preg_replace('/[^0-9]/', '', $client_phone);
+            }
+
+            $client_id = $this->meta['client_id'];
+            $webhooks = $this->meta['webhooks'];
+            $client_secret = $this->meta['client_secret'];
+            $host_address = $api->getHost();
+            $billing_data = array(
+                'company' => $contact_info['company'],
+                'first_name' => $contact_info['first_name'],
+                'last_name' => $contact_info['last_name'],
+                'phone' => $client_phone,
+                'email' => $client->email,
+                'city' => $contact_info['city'],
+                'country' => $contact_info['country']['name'],
+                'address_1' => $contact_info['address_1'],
+                'address_2' => $contact_info['address_2'],
+                'state' => $contact_info['state']['name'],
+                'postcode' => $contact_info['zip'],
+            );
+
+            if (count($invoice_amounts) == 1) {
+                $order_url = sprintf('%s/admin/clients/editinvoice/%s/%s', $api->getHost(), $contact_info['client_id'], $invoice_amounts[0]['id']);
+                $order_str = sprintf('Client #%s Invoice #%s', $contact_info['client_id'], $invoice_amounts[0]['id']);
+            } else {
+                $order_url = sprintf('%s/admin/clients/view/%s', $api->getHost(), $contact_info['client_id']);
+                $order_str = sprintf('Client #%s', $contact_info['client_id']);
+            }
+
+            $company_id = Configure::get('Blesta.company_id');
+            $company = $this->Companies->get($company_id);
+            $notes_link = sprintf(
+                "%s|Store name: %s|%s",
+                $order_url,
+                $company->name,
+                $order_str
+            );
+
+            $store_invoice_id = sprintf('%s|%s|%s|%s', md5($host_address), $contact_info['client_id'], $order_id, implode('_', $store_invoice_ids));
+            $coin_currency = $api->getCoinCurrency($this->currency);
+
+            $invoice_params = array(
+                'client_id' => $client_id,
+                'currency_id' => $coin_currency['id'],
+                'invoice_id' => $store_invoice_id,
+                'amount' => number_format($amount, $coin_currency['decimalPlaces'], '', ''),
+                'display_value' => $amount,
+                'invoice_amounts' => $invoice_amounts,
+                'billing_data' => $billing_data,
+                'notes_link' => $notes_link,
+            );
+
+            if ($webhooks) {
+                $invoice_params['client_secret'] = $client_secret;
+                $resp = $api->createMerchantInvoice($invoice_params);
+                $invoice = array_shift($resp['invoices']);
+            } else {
+                $invoice = $api->createSimpleInvoice($invoice_params);
+            }
+
+            $this->Session->write($session_invoice_id, $invoice['id']);
+            $invoice_id = $invoice['id'];
         }
 
         // An array of key/value hidden fields to set for the payment form
         $fields = array(
-            'invoice-id' => $invoice['id'],
+            'invoice-id' => $invoice_id,
             'success-url' => $this->ifSet($options['return_url']),
             'cancel-url' => $this->ifSet($options['return_url']),
         );
@@ -414,16 +432,16 @@ class CoinPayments extends NonmerchantGateway
 
             Loader::load(dirname(__FILE__) . DS . 'lib' . DS . 'coinpayments_api.php');
             $api = new CoinpaymentsApi();
-            $client_id = $this->meta['client_id'];
-            $client_secret = $this->meta['client_secret'];
+            $coin_client_id = $this->meta['client_id'];
+            $coin_client_secret = $this->meta['client_secret'];
             $signature = $_SERVER['HTTP_X_COINPAYMENTS_SIGNATURE'];
             $request_data = json_decode($content, true);
-            if ($api->checkDataSignature($signature, $content, $client_id, $client_secret, $request_data['invoice']['status']) && isset($request_data['invoice']['invoiceId'])) {
+            if ($api->checkDataSignature($signature, $content, $coin_client_id, $coin_client_secret, $request_data['invoice']['status']) && isset($request_data['invoice']['invoiceId'])) {
 
                 $invoice_str = $request_data['invoice']['invoiceId'];
                 $invoice_str = explode('|', $invoice_str);
                 $host_hash = array_shift($invoice_str);
-                $invoice_id = array_shift($invoice_str);
+                $client_id = array_shift($invoice_str);
 
                 if ($host_hash == md5($api->getHost())) {
                     $display_value = $request_data['invoice']['amount']['displayValue'];
@@ -436,10 +454,10 @@ class CoinPayments extends NonmerchantGateway
                         $status = 'declined';
                     }
 
-                    $invoice_data = $api->getInvoiceData($request_data['invoice']['id'], $client_id, $client_secret);
+                    $invoice_data = $api->getInvoiceData($request_data['invoice']['id'], $client_id, $coin_client_secret);
                     $invoice_amounts = json_decode($invoice_data["customData"]["amounts"], true);
                     return array(
-                        'client_id' => $invoice_id,
+                        'client_id' => $client_id,
                         'amount' => $this->ifSet($display_value),
                         'currency' => $this->ifSet($request_data['invoice']['currency']['symbol']),
                         'status' => $status,
