@@ -1,3 +1,5 @@
+> NOTICE: Migrated to [CoinPaymentsNet/plugin-blesta](https://github.com/CoinPaymentsNet/plugin-blesta).
+
 IMPORTANT NOTE:
 
 This is only for use with: https://alpha.coinpayments.net/
